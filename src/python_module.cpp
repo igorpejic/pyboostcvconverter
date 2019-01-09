@@ -2,6 +2,13 @@
 
 #include <boost/python.hpp>
 #include <pyboostcvconverter/pyboostcvconverter.hpp>
+#include "opencv2/imgproc.hpp"
+#include <opencv2/video.hpp>
+#include "opencv2/imgcodecs.hpp"
+#include "opencv2/imgproc.hpp"
+#include "opencv2/videoio.hpp"
+#include <opencv2/highgui.hpp>
+#include "opencv2/core.hpp"
 
 namespace pbcvt {
 
@@ -15,6 +22,8 @@ namespace pbcvt {
  */
     PyObject *dot(PyObject *left, PyObject *right) {
 
+        Ptr<BackgroundSubtractor> pMOG2; //MOG2 Background subtractor
+        pMOG2 = cv::createBackgroundSubtractorMOG2(); //MOG2 approach
         cv::Mat leftMat, rightMat;
         leftMat = pbcvt::fromNDArrayToMat(left);
         rightMat = pbcvt::fromNDArrayToMat(right);
@@ -28,6 +37,42 @@ namespace pbcvt {
         cv::Mat result = leftMat * rightMat;
         PyObject *ret = pbcvt::fromMatToNDArray(result);
         return ret;
+    }
+
+    boost::python::tuple apply(cv::Mat frame) {
+        static Ptr<BackgroundSubtractor> pMOG2; //MOG2 Background subtractor
+        cv::Mat fgMask;
+        cv::Mat bgImg;
+
+        static int initialized = 0;
+        if (initialized == 0) {
+            pMOG2 = cv::createBackgroundSubtractorMOG2(); //MOG2 approach
+        }
+
+        if (initialized == 0) {
+            initialized = 1;
+        }
+        pMOG2->apply(frame, fgMask);
+        pMOG2->getBackgroundImage(bgImg);
+        return boost::python::make_tuple(fgMask, frame);
+    }
+
+    boost::python::tuple applyGPU(cv::Mat frame) {
+        static Ptr<BackgroundSubtractor> pMOG2; //MOG2 Background subtractor
+        cv::gpu::GpuMat fgMask;
+        cv::gpu::GpuMat bgImg;
+
+        static int initialized = 0;
+        if (initialized == 0) {
+            pMOG2 = cv::cuda::createBackgroundSubtractorMOG2(); //MOG2 approach
+        }
+
+        if (initialized == 0) {
+            initialized = 1;
+        }
+        pMOG2->apply(frame, fgMask);
+        pMOG2->getBackgroundImage(bgImg);
+        return boost::python::make_tuple(fgMask, frame);
     }
 /**
  * @brief Example function. Simply makes a new CV_16UC3 matrix and returns it as a numpy array.
@@ -96,6 +141,7 @@ namespace pbcvt {
         //expose module-level functions
         def("dot", dot);
         def("dot2", dot2);
+		def("apply", apply);
 		def("makeCV_16UC3Matrix", makeCV_16UC3Matrix);
 
 		//from PEP8 (https://www.python.org/dev/peps/pep-0008/?#prescriptive-naming-conventions)

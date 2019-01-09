@@ -30,7 +30,7 @@ set_property(CACHE PYTHON_DESIRED_VERSION PROPERTY STRINGS ${PYTHON_OPTIONS})
 
 #=============== Find Packages ====================================
 ## OpenCV
-find_package(OpenCV COMPONENTS core REQUIRED)
+find_package(OpenCV COMPONENTS core video REQUIRED)
 
 ## Python
 include("DetectPython")
