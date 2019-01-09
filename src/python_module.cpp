@@ -9,6 +9,7 @@
 #include "opencv2/videoio.hpp"
 #include <opencv2/highgui.hpp>
 #include "opencv2/core.hpp"
+#include "opencv2/cudabgsegm.hpp"
 
 namespace pbcvt {
 
@@ -59,8 +60,8 @@ namespace pbcvt {
 
     boost::python::tuple applyGPU(cv::Mat frame) {
         static Ptr<BackgroundSubtractor> pMOG2; //MOG2 Background subtractor
-        cv::gpu::GpuMat fgMask;
-        cv::gpu::GpuMat bgImg;
+        cv::cuda::GpuMat fgMask;
+        cv::cuda::GpuMat bgImg;
 
         static int initialized = 0;
         if (initialized == 0) {
