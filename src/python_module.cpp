@@ -10,6 +10,7 @@
 #include <opencv2/highgui.hpp>
 #include "opencv2/core.hpp"
 #include "opencv2/cudabgsegm.hpp"
+#include "opencv2/cudaarithm.hpp"
 
 namespace pbcvt {
 
@@ -41,40 +42,55 @@ namespace pbcvt {
     }
 
     boost::python::tuple apply(cv::Mat frame) {
-        static Ptr<BackgroundSubtractor> pMOG2; //MOG2 Background subtractor
-        cv::Mat fgMask;
-        cv::Mat bgImg;
-
-        static int initialized = 0;
-        if (initialized == 0) {
-            pMOG2 = cv::createBackgroundSubtractorMOG2(); //MOG2 approach
-        }
-
-        if (initialized == 0) {
-            initialized = 1;
-        }
-        pMOG2->apply(frame, fgMask);
-        pMOG2->getBackgroundImage(bgImg);
-        return boost::python::make_tuple(fgMask, frame);
+       static Ptr<BackgroundSubtractor> pMOG2; //MOG2 Background subtractor
+       cv::Mat fgMask;
+       cv::Mat bgImg;       static int initialized = 0;
+       if (initialized == 0) {
+           pMOG2 = cv::createBackgroundSubtractorMOG2(); //MOG2 approach
+       }
+       if (initialized == 0) {
+           initialized = 1;
+       }
+       //_, foreground = cv2.threshold(foreground, 254, 1, cv2.THRESH_BINARY)       pMOG2->apply(frame, fgMask);
+       cv::threshold(fgMask, fgMask, 254, 1, cv::THRESH_BINARY);       // foreground = cv2.morphologyEx(foreground, cv2.MORPH_OPEN, self._KERNEL)
+       // _KERNEL = numpy.ones((3, 3), numpy.uint8)
+       int kdata[] = {1, 1, 1, 1, 1, 1, 1, 1, 1};
+       Mat kernel(3, 3, CV_8U, kdata);
+       //cv::morphologyEx(fgMask, fgMask, cv::MORPH_OPEN, kernel);
+       pMOG2->getBackgroundImage(bgImg);
+       return boost::python::make_tuple(fgMask, bgImg);
     }
 
-    boost::python::tuple applyGPU(cv::Mat frame) {
-        static Ptr<BackgroundSubtractor> pMOG2; //MOG2 Background subtractor
-        cv::cuda::GpuMat fgMask;
-        cv::cuda::GpuMat bgImg;
+   boost::python::tuple applyGPU(cv::Mat frame) {
+       static Ptr<BackgroundSubtractor> pMOG2; //MOG2 Background subtractor
+       cv::cuda::GpuMat d_fgmask;
+       cv::cuda::GpuMat d_bgimg;
+       cv::cuda::GpuMat d_frame;
 
-        static int initialized = 0;
-        if (initialized == 0) {
-            pMOG2 = cv::cuda::createBackgroundSubtractorMOG2(); //MOG2 approach
-        }
+       //_, foreground = cv2.threshold(foreground, 254, 1, cv2.THRESH_BINARY)
+       Mat fgmask;
+       Mat fgimg;
+       Mat bgimg;
 
-        if (initialized == 0) {
-            initialized = 1;
-        }
-        pMOG2->apply(frame, fgMask);
-        pMOG2->getBackgroundImage(bgImg);
-        return boost::python::make_tuple(fgMask, frame);
-    }
+       d_frame.upload(frame);
+
+       static int initialized = 0;
+       if (initialized == 0) {
+           pMOG2 = cv::cuda::createBackgroundSubtractorMOG2(); //MOG2 approach
+       }
+
+       if (initialized == 0) {
+           initialized = 1;
+       }
+       pMOG2->apply(d_frame, d_fgmask);
+       pMOG2->getBackgroundImage(d_bgimg);
+       //cv::cuda::threshold(d_fgmask, d_fgmask, 254, 1, cv::THRESH_BINARY);       // foreground = cv2.morphologyEx(foreground, cv2.MORPH_OPEN, self._KERNEL)
+
+       d_fgmask.download(fgmask);
+       d_frame.download(frame);
+       return boost::python::make_tuple(fgmask, frame);
+   }
+
 /**
  * @brief Example function. Simply makes a new CV_16UC3 matrix and returns it as a numpy array.
  * @return The resulting numpy array.
@@ -143,6 +159,7 @@ namespace pbcvt {
         def("dot", dot);
         def("dot2", dot2);
 		def("apply", apply);
+		def("applyGPU", applyGPU);
 		def("makeCV_16UC3Matrix", makeCV_16UC3Matrix);
 
 		//from PEP8 (https://www.python.org/dev/peps/pep-0008/?#prescriptive-naming-conventions)
